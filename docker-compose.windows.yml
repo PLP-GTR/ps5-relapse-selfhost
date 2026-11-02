@@ -1,0 +1,9 @@
+# Docker Desktop: publish DNS on the Windows LAN IP instead of host networking.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.windows.yml up -d
+# SERVER_IP must be the Windows PC's LAN IPv4 address, not loopback.
+services:
+  dns:
+    network_mode: bridge
+    ports:
+      - "${SERVER_IP:?Set SERVER_IP in .env}:53:53/udp"
+      - "${SERVER_IP:?Set SERVER_IP in .env}:53:53/tcp"

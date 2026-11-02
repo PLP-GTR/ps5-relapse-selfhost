@@ -2,9 +2,7 @@
 #
 # Prerequisites (run once):
 #   cp .env.example .env   # set SERVER_IP
-#   ./scripts/render-config.sh
-#   ./scripts/generate-cert.sh
-#   ./scripts/setup-host.sh
+#   docker compose run --rm --build setup
 #
 # Then:
 #   docker compose up -d
@@ -15,6 +13,17 @@
 # Optional Unraid / Nginx Proxy Manager setup: see docs/unraid.md.
 
 services:
+  # One-off preparation helper. Explicit `compose run setup` enables it;
+  # a normal `compose up` starts only the DNS and web services.
+  setup:
+    profiles: ["tools"]
+    build:
+      context: ./docker/setup
+    working_dir: /work
+    restart: "no"
+    volumes:
+      - .:/work
+
   dns:
     image: alpine:3.20
     container_name: relapse-dns

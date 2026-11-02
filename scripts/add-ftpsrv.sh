@@ -49,9 +49,13 @@ else
   exit 1
 fi
 
-got="$(shasum -a 256 "$tmpelf" 2>/dev/null | awk '{print $1}')"
-if [[ -z "$got" ]]; then
+if command -v sha256sum >/dev/null 2>&1; then
   got="$(sha256sum "$tmpelf" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+  got="$(shasum -a 256 "$tmpelf" | awk '{print $1}')"
+else
+  echo "error: need sha256sum or shasum to verify ftpsrv" >&2
+  exit 1
 fi
 if [[ "$got" != "$FTPSRV_SHA256" ]]; then
   echo "error: SHA-256 mismatch for ftpsrv-ps5.elf" >&2

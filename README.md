@@ -40,9 +40,11 @@ PS5 opens User’s Guide (HTTPS)
 - Linux host with Docker + Compose v2 (dnsmasq uses `network_mode: host`)
 - Free **UDP/TCP 53**, **TCP 80**, **TCP 443** on that host for the default standalone setup
 - Ability to set the PS5’s DNS to `SERVER_IP`
-- `git`, `python3`, `openssl`, `curl` (or `wget`)
+- `git` to clone this repository; the setup container supplies Bash, Python, Git, OpenSSL, curl, and checksum tools
 
 macOS / Docker Desktop can build and validate configs, but host-network DNS will not behave the same; run the stack on a Linux box on your LAN.
+
+For a temporary PS5 test using Docker Desktop on Windows, see the [Windows guide](docs/windows.md). It provides an optional Compose override that publishes DNS on the PC's LAN address.
 
 ---
 
@@ -55,12 +57,51 @@ cd ps5-relapse-selfhost
 cp .env.example .env
 # edit .env → set SERVER_IP to this machine’s LAN IPv4
 
-./scripts/render-config.sh   # dnsmasq.conf + nginx/default.conf
-./scripts/generate-cert.sh   # certs/manuals.{crt,key}
-./scripts/setup-host.sh      # clone pinned WAK1360 → www/ + apply overlay
-./scripts/add-ftpsrv.sh      # optional: official ftpsrv-ps5.elf + payloads.json entry
+docker compose run --rm --build setup
+# optional: docker compose run --rm setup add-ftpsrv
 
+docker compose config -q
 docker compose up -d
+```
+
+### Setup container
+
+The one-off `setup` service renders configuration, generates the TLS certificate, clones the pinned host page, applies the overlay, and runs the file checks. It writes generated files into the bind-mounted repository, so they persist after the helper exits. A normal `docker compose up -d` starts only DNS and web; their mounts remain read-only.
+
+To include the optional FTP payload in the preparation run:
+
+```bash
+docker compose run --rm --build setup prepare --with-ftp
+```
+
+Individual commands are also available:
+
+| Command after `docker compose run --rm setup` | Script |
+|---------------------------------------------|--------|
+| `render-config` | `scripts/render-config.sh` |
+| `generate-cert` | `scripts/generate-cert.sh` |
+| `setup-host` | `scripts/setup-host.sh` |
+| `add-ftpsrv` | `scripts/add-ftpsrv.sh` |
+| `verify` | `scripts/verify.sh` |
+| `help` | Show helper usage |
+
+The helper has no Docker socket or published ports. Its `verify` command checks prepared files; run `docker compose config -q` on the host to validate Compose. Build dependencies are installed in the helper image, while downloads and certificates are created when the helper runs. The build context contains only `docker/setup/`.
+
+For existing Windows checkouts, the helper converts CRLF line endings to LF in `scripts/*.sh` and `.env` before running Bash. This updates those bind-mounted files in place while preserving their permissions. `.gitattributes` keeps shell scripts and `.env.example` in LF format for future checkouts.
+
+The helper runs as root by default. To preserve ownership when the repository belongs to a non-root Linux user, run preparation and subsequent helper commands with that user's UID/GID:
+
+```bash
+docker compose run --rm --build --user "$(id -u):$(id -g)" setup
+```
+
+Host-side preparation remains supported if Bash, Python 3, Git, OpenSSL, curl/wget, and a checksum utility are installed:
+
+```bash
+./scripts/render-config.sh
+./scripts/generate-cert.sh
+./scripts/setup-host.sh
+# optional: ./scripts/add-ftpsrv.sh
 ./scripts/verify.sh
 ```
 
@@ -106,7 +147,7 @@ Default `HOST_REF` pins [WAK1360-Relapse](https://github.com/arg0WAK/WAK1360-Rel
 ## Optional: FTP payload
 
 ```bash
-./scripts/add-ftpsrv.sh
+docker compose run --rm --build setup add-ftpsrv
 ```
 
 Downloads [`ftpsrv-ps5.elf`](https://github.com/ps5-payload-dev/ftpsrv/releases/download/v0.21.1/ftpsrv-ps5.elf) from the official [ps5-payload-dev/ftpsrv](https://github.com/ps5-payload-dev/ftpsrv) **v0.21.1** release, verifies SHA-256 `7d4b31c8…`, installs it into `www/payloads/`, and writes `payloads.json` with the FTP Server entry (port **2121**). The ELF is **never** committed to this repo.
@@ -155,6 +196,8 @@ Publishing the same files on an alternate HTTP port (for example **:8765**) with
 
 ```
 ├── docker-compose.yml
+├── docker-compose.windows.yml   # optional Docker Desktop DNS port mappings
+├── docker/setup/                # one-off preparation image and entrypoint
 ├── .env.example
 ├── docs/unraid.md        # Unraid deployment and optional NPM setup
 ├── overlay/                    # exact page files applied onto pinned WAK1360
@@ -172,6 +215,7 @@ Publishing the same files on an alternate HTTP port (for example **:8765**) with
 │   ├── setup-host.sh
 │   ├── add-ftpsrv.sh
 │   └── verify.sh
+├── tests/test_setup.py          # offline setup integration checks
 └── README.md
 ```
 
@@ -182,12 +226,25 @@ Generated / cloned (gitignored): `.env`, rendered configs, `certs/`, `www/`.
 ## Updating the host page
 
 ```bash
-./scripts/setup-host.sh        # re-fetch pinned commit + re-apply overlay
-./scripts/add-ftpsrv.sh        # if you still want FTP
-docker compose restart web
+docker compose run --rm --build setup
+docker compose restart dns web
 ```
 
+If you use FTP, run `docker compose run --rm --build setup prepare --with-ftp` instead of the plain setup command. Refreshing the upstream clone removes the locally added FTP payload, so it must be installed again.
+
 To move the pin, set `HOST_REF` in `.env` and refresh the overlay files so they still apply cleanly.
+
+---
+
+## Testing the setup helper
+
+Run the offline integration checks with the helper's toolchain:
+
+```bash
+docker compose run --rm --build --entrypoint python3 setup -B -m unittest discover -s tests -v
+```
+
+The tests use a temporary local Git repository and inert payload fixtures; they do not download or execute exploit code. They can also run on a host with the preparation tools installed using `python3 -B -m unittest discover -s tests -v`. Set `BASH_BIN` to the Bash executable when it is not available as `bash` on `PATH`.
 
 ---
 

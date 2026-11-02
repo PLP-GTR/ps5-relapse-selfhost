@@ -54,10 +54,10 @@ Choose unused backend ports on the Unraid host. The example uses **8080/8443**; 
 | Direct backend HTTPS for diagnostics | `192.168.1.50:8443` |
 
 ```text
-PS5 --DNS--> 192.168.1.50:53
-             guide domains resolve to 192.168.1.51
-PS5 --HTTPS--> NPM 192.168.1.51:443
-               --HTTP--> Relapse backend 192.168.1.50:8080
+PS5 ── DNS ────► 192.168.1.50:53
+                 guide domains resolve to 192.168.1.51
+PS5 ── HTTPS ──► NPM 192.168.1.51:443
+                 └─ HTTP ──► Relapse backend 192.168.1.50:8080
 ```
 
 Keep `SERVER_IP` set to the Unraid host IP; `GUIDE_IP` only changes the guide-domain DNS answers. The Sony guide hostnames are redirected by the local DNS service.
@@ -66,10 +66,10 @@ Verify that NPM can reach `SERVER_IP:WEB_HTTP_PORT` from its container. Connecti
 
 ## Shared setup for both NPM options
 
-Complete the file preparation from the [main quick start](../README.md#quick-start), using your selected `.env` values before rendering or starting containers. For an existing installation, apply the settings with:
+Complete the file preparation from the [main quick start](../README.md#quick-start), using your selected `.env` values before rendering or starting containers. The one-off setup container supplies the preparation tools, so they do not need to be installed on Unraid. For an existing installation, apply changed IP or port settings with:
 
 ```bash
-./scripts/render-config.sh
+docker compose run --rm --build setup render-config
 docker compose up -d
 docker compose restart dns
 ```
