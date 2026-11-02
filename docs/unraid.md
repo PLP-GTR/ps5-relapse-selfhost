@@ -34,35 +34,35 @@ Leave `GUIDE_IP` unset so guide domains resolve to `SERVER_IP`. This publishes t
 
 ## 3. Nginx Proxy Manager has its own LAN IP
 
-Use this option when NPM runs on a custom network such as `br0` with its own LAN IP. For an Unraid host at **192.168.0.13** and NPM at **192.168.0.14**, set:
+Use this option when NPM runs on a custom network such as `br0` with its own LAN IP. The following example uses **192.168.1.50** for the Unraid host and **192.168.1.51** for NPM. Replace both example addresses with your own LAN addresses:
 
 ```dotenv
-SERVER_IP=192.168.0.13
-GUIDE_IP=192.168.0.14
-WEB_HTTP_PORT=18080
-WEB_HTTPS_PORT=18443
+SERVER_IP=192.168.1.50
+GUIDE_IP=192.168.1.51
+WEB_HTTP_PORT=8080
+WEB_HTTPS_PORT=8443
 ```
 
-These example backend ports avoid the **8080** port already used by qBittorrent in this layout. Confirm **18080/18443** and DNS port **53 (UDP/TCP)** are available on the host.
+Choose unused backend ports on the Unraid host. The example uses **8080/8443**; confirm those ports and DNS port **53 (UDP/TCP)** are available before starting the stack.
 
 | Purpose | Address |
 |---------|---------|
-| PS5's DNS server | `192.168.0.13:53` |
-| DNS answer for each guide hostname | `192.168.0.14` |
-| PS5's guide HTTPS connection | `192.168.0.14:443` (NPM) |
-| NPM's HTTP upstream | `192.168.0.13:18080` |
-| Direct backend HTTPS for diagnostics | `192.168.0.13:18443` |
+| PS5's DNS server | `192.168.1.50:53` |
+| DNS answer for each guide hostname | `192.168.1.51` |
+| PS5's guide HTTPS connection | `192.168.1.51:443` (NPM) |
+| NPM's HTTP upstream | `192.168.1.50:8080` |
+| Direct backend HTTPS for diagnostics | `192.168.1.50:8443` |
 
 ```text
-PS5 --DNS--> 192.168.0.13:53
-             guide domains resolve to 192.168.0.14
-PS5 --HTTPS--> NPM 192.168.0.14:443
-               --HTTP--> Relapse backend 192.168.0.13:18080
+PS5 --DNS--> 192.168.1.50:53
+             guide domains resolve to 192.168.1.51
+PS5 --HTTPS--> NPM 192.168.1.51:443
+               --HTTP--> Relapse backend 192.168.1.50:8080
 ```
 
-Keep `SERVER_IP` set to the Unraid host IP; `GUIDE_IP` only changes the guide-domain DNS answers. Existing Cloudflare records for your own domains can stay as they are. The Sony guide hostnames are redirected by the local DNS service.
+Keep `SERVER_IP` set to the Unraid host IP; `GUIDE_IP` only changes the guide-domain DNS answers. The Sony guide hostnames are redirected by the local DNS service.
 
-NPM must be able to reach the chosen backend address. Existing proxy hosts forwarding to `192.168.0.13` demonstrate the required route. If they use different upstream addresses, verify this route before relying on it; no Docker network change is required when it already works.
+Verify that NPM can reach `SERVER_IP:WEB_HTTP_PORT` from its container. Connectivity depends on the Docker network configuration; check this route before configuring the PS5.
 
 ## Shared setup for both NPM options
 
@@ -80,7 +80,7 @@ After starting the stack, configure NPM:
 
 1. Under **SSL Certificates**, add a **Custom** certificate. Upload `certs/manuals.crt` as the certificate and `certs/manuals.key` as its key. This uses NPM's [custom certificate support](https://nginxproxymanager.com/guide/); use the generated certificate rather than requesting a Let's Encrypt certificate for Sony's domains.
 2. Add a **Proxy Host** with all three domain names: `manuals.playstation.net`, `manual.playstation.net`, and `doc.dl.playstation.net`.
-3. Set **Scheme** to `http`, **Forward Hostname / IP** to `SERVER_IP`, and **Forward Port** to `WEB_HTTP_PORT`. For option 3's example, this is `192.168.0.13:18080`. Leave **Cache Assets** disabled and keep the request path unchanged.
+3. Set **Scheme** to `http`, **Forward Hostname / IP** to `SERVER_IP`, and **Forward Port** to `WEB_HTTP_PORT`. For option 3's example, this is `192.168.1.50:8080`. Leave **Cache Assets** disabled and keep the request path unchanged.
 4. In the proxy host's **SSL** tab, select the uploaded certificate. NPM receives the PS5's HTTPS connection on **443** and forwards HTTP to the backend. The published backend HTTPS port is available for direct TLS checks.
 5. Apply an IP-based **Access List** allowing the PS5 and trusted admin devices, especially if NPM's ports are forwarded from the internet. Avoid username/password authentication for this proxy host so the PS5 can load it directly.
 
@@ -89,13 +89,13 @@ The backend retains the deep-path fallback, asset rewrites, JavaScript/CSS 404 h
 Check option 3's example from a LAN computer (replace addresses and ports for your deployment):
 
 ```bash
-nslookup manuals.playstation.net 192.168.0.13
-curl -I http://192.168.0.13:18080/src/firmware.js
-curl -k --resolve manuals.playstation.net:443:192.168.0.14 \
+nslookup manuals.playstation.net 192.168.1.50
+curl -I http://192.168.1.50:8080/src/firmware.js
+curl -k --resolve manuals.playstation.net:443:192.168.1.51 \
   https://manuals.playstation.net/document/en/ps5/
 ```
 
-Expect the DNS answer **192.168.0.14**, an HTTP **200** for the script, and the host page HTML through HTTPS. The `--resolve` check tests NPM independently of DNS, while `nslookup` checks the DNS redirect. If NPM returns **502**, check its access to `SERVER_IP:WEB_HTTP_PORT` and confirm the web container is running. Set the PS5's DNS to `SERVER_IP` after completing the proxy configuration.
+Expect the DNS answer **192.168.1.51**, an HTTP **200** for the script, and the host page HTML through HTTPS. The `--resolve` check tests NPM independently of DNS, while `nslookup` checks the DNS redirect. If NPM returns **502**, check its access to `SERVER_IP:WEB_HTTP_PORT` and confirm the web container is running. Set the PS5's DNS to `SERVER_IP` after completing the proxy configuration.
 
 ## Optional: Unraid host nginx (legacy)
 
