@@ -8,7 +8,7 @@ Run `ipconfig` in PowerShell and find the IPv4 address of the Ethernet or Wi-Fi 
 
 ```dotenv
 SERVER_IP=<PC_LAN_IP>
-GUIDE_IP=<PC_LAN_IP>
+#GUIDE_IP=
 WEB_HTTP_PORT=80
 WEB_HTTPS_PORT=443
 ```
@@ -34,7 +34,7 @@ New-NetFirewallRule -DisplayName "Relapse PS5 test TCP" -Group "Relapse PS5 test
 New-NetFirewallRule -DisplayName "Relapse PS5 test DNS UDP" -Group "Relapse PS5 test" -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53 -Profile Private -RemoteAddress LocalSubnet
 ```
 
-## Check the route and connect the PS5
+## Optional: Check the route
 
 From another LAN computer, replace `<PC_LAN_IP>` with the Windows PC's address:
 
@@ -45,7 +45,22 @@ curl.exe -k --resolve manuals.playstation.net:443:<PC_LAN_IP> https://manuals.pl
 
 Expect the DNS answer to be the PC's LAN IP and the HTTPS response to contain the host page. The `--resolve` check tests HTTPS independently of the DNS service.
 
-Set the PS5's primary DNS to the PC's LAN IP. Leave secondary DNS unset or use `0.0.0.0`. Open **User's Guide** and follow the host page's instructions. The certificate is self-signed; successful rendering on a PC does not verify the console's exploit chain.
+## Connect the PS5
+
+Set the PS5's primary DNS to the PC's LAN IP.
+
+Settings → Network → Settings → Set Up Internet Connection → Press [`OPTIONS`]-Button → Advanced Settings
+
+DNS Settings: Manual \
+Primary DNS: `{SERVER_IP}` (same as in .env file) \
+Secondary DNS: `0.0.0.0`
+
+Open Settings → Guide & Tips, Health and Safety, and Other Information → **User's Guide**. Accept the provided certificate with **Yes**.
+
+Follow the host page's instructions: **START**. \
+After the exploit did it's job, visit the debug settings.
+
+## Logs
 
 Inspect startup errors with:
 
