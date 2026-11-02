@@ -30,7 +30,7 @@ PS5 opens User’s Guide (HTTPS)
 ```
 
 1. **dnsmasq** answers authoritative A records for the User’s Guide hostnames and black-holes Sony update domains so the console stays on its current firmware.
-2. **nginx** serves the host page on **80 and 443** with a self-signed cert for `manuals.playstation.net`.
+2. **nginx** serves the host page directly on **80 and 443** by default, using the generated self-signed cert for `manuals.playstation.net`.
 3. An **overlay** on top of pinned WAK1360 makes the page survive deep User’s Guide paths, aggressive caching, and UA quirks.
 
 ---
@@ -38,8 +38,8 @@ PS5 opens User’s Guide (HTTPS)
 ## Requirements
 
 - Linux host with Docker + Compose v2 (dnsmasq uses `network_mode: host`)
-- Free **UDP/TCP 53**, **TCP 80**, **TCP 443** on that host
-- Ability to set the PS5’s DNS (and ideally your LAN DHCP DNS) to `SERVER_IP`
+- Free **UDP/TCP 53**, **TCP 80**, **TCP 443** on that host for the default standalone setup
+- Ability to set the PS5’s DNS to `SERVER_IP`
 - `git`, `python3`, `openssl`, `curl` (or `wget`)
 
 macOS / Docker Desktop can build and validate configs, but host-network DNS will not behave the same; run the stack on a Linux box on your LAN.
@@ -64,14 +64,20 @@ docker compose up -d
 ./scripts/verify.sh
 ```
 
+### Standalone hosting (default)
+
+The quick start serves the page directly on `SERVER_IP:80` and `SERVER_IP:443`. The default settings are `WEB_HTTP_PORT=80` and `WEB_HTTPS_PORT=443`; those host ports must be free. No reverse proxy is required. Continue with the PS5 DNS settings below.
+
+For Unraid deployments, including Nginx Proxy Manager on the same or a separate LAN IP, see the [Unraid guide](docs/unraid.md). The optional `GUIDE_IP` setting redirects guide domains to a separate proxy while `SERVER_IP` remains the DNS server and backend address.
+
 ### Point DNS at the server
 
 **Option A — PS5 only**
 
-Settings → Network → Set Up Internet Connection → Custom → DNS  
-Primary = `SERVER_IP`, Secondary = e.g. `1.1.1.1`
+Settings → Network → Set Up Internet Connection → Custom → DNS. Primary = `SERVER_IP`. Leave secondary DNS unset or `0.0.0.0`.
 
-**Option B — whole LAN (recommended)**  
+**Option B — whole LAN (optional)**
+
 Set your router’s DHCP DNS to `SERVER_IP` so every device (including the PS5) uses dnsmasq. Upstream resolvers in `.env` handle everything that isn’t overridden.
 
 ### On the PS5
@@ -141,7 +147,7 @@ Homebrew may need a correct `param.json` and an OnionHEN config entry, or you ge
 
 ### 8. Plain HTTP containers on a side port are not enough
 
-Publishing the same files on an alternate HTTP port (for example **:8765**) without the SPA `try_files` fallback will **404** on `/document/en/ps5/`. The PS5 User’s Guide talks to **HTTPS :443** on `manuals.playstation.net`. Use the compose `web` service or the Unraid host-nginx drop-in below — not a stock nginx on a random port.
+Publishing the same files on an alternate HTTP port (for example **:8765**) without the SPA `try_files` fallback will **404** on `/document/en/ps5/`. The PS5 User’s Guide talks to **HTTPS :443** on `manuals.playstation.net`. The default Compose setup serves that port directly. For reverse proxy deployment, see the [Unraid guide](docs/unraid.md).
 
 ---
 
@@ -150,6 +156,7 @@ Publishing the same files on an alternate HTTP port (for example **:8765**) with
 ```
 ├── docker-compose.yml
 ├── .env.example
+├── docs/unraid.md        # Unraid deployment and optional NPM setup
 ├── overlay/                    # exact page files applied onto pinned WAK1360
 │   ├── index.html
 │   ├── payloads.json           # used by add-ftpsrv.sh
@@ -172,34 +179,12 @@ Generated / cloned (gitignored): `.env`, rendered configs, `certs/`, `www/`.
 
 ---
 
-## Optional: Unraid / existing host nginx
-
-If your NAS already runs nginx on 80/443:
-
-1. Still run the **dns** service from this compose file (or any dnsmasq with the same records).
-2. Skip compose `web`, or leave it unpublished.
-3. Render and merge the drop-in:
-
-```bash
-export SERVER_IP=192.168.1.50
-export WAK_ROOT=/path/to/ps5-relapse-selfhost/www
-export CERT_DIR=/path/to/ps5-relapse-selfhost/certs
-# optional overrides:
-# export DROP_IN=/boot/config/custom/relapse-nginx.conf
-# export NGINX_SERVERS_CONF=/etc/nginx/conf.d/servers.conf
-./unraid/apply-nginx.sh
-```
-
-Keep the `.js`/`.css` `=404` rule and `Cache-Control: no-store`. Re-run the apply script after reboot if your host nginx config is regenerated from drop-ins.
-
----
-
 ## Updating the host page
 
 ```bash
 ./scripts/setup-host.sh        # re-fetch pinned commit + re-apply overlay
 ./scripts/add-ftpsrv.sh        # if you still want FTP
-docker compose restart web     # or re-run unraid/apply-nginx.sh
+docker compose restart web
 ```
 
 To move the pin, set `HOST_REF` in `.env` and refresh the overlay files so they still apply cleanly.

@@ -13,10 +13,10 @@ local=/manuals.playstation.net/
 local=/manual.playstation.net/
 local=/doc.dl.playstation.net/
 
-# Send the PS5 User's Guide domains to this host
-address=/manuals.playstation.net/${SERVER_IP}
-address=/manual.playstation.net/${SERVER_IP}
-address=/doc.dl.playstation.net/${SERVER_IP}
+# Send the PS5 User's Guide domains to the HTTPS host or reverse proxy.
+address=/manuals.playstation.net/${GUIDE_IP}
+address=/manual.playstation.net/${GUIDE_IP}
+address=/doc.dl.playstation.net/${GUIDE_IP}
 
 # Block firmware update / patch endpoints (keeps the console on its current FW)
 address=/update.playstation.net/0.0.0.0

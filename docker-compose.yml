@@ -9,7 +9,10 @@
 # Then:
 #   docker compose up -d
 #
+# Standalone hosting uses ports 80/443 by default.
 # Point the PS5 DNS at SERVER_IP, open User's Guide, press START.
+# GUIDE_IP may select a separate reverse proxy IP for the guide domains.
+# Optional Unraid / Nginx Proxy Manager setup: see docs/unraid.md.
 
 services:
   dns:
@@ -33,11 +36,9 @@ services:
     image: nginx:alpine
     container_name: relapse-web
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
-      - "${SERVER_IP:-0.0.0.0}:80:80"
-      - "${SERVER_IP:-0.0.0.0}:443:443"
+      - "${SERVER_IP:?Set SERVER_IP in .env}:${WEB_HTTP_PORT:-80}:80"
+      - "${SERVER_IP:?Set SERVER_IP in .env}:${WEB_HTTPS_PORT:-443}:443"
     volumes:
       - ./www:/usr/share/nginx/html:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
